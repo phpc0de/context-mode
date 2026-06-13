@@ -21,14 +21,30 @@ jobs:
 
       # 3. 安装项目依赖
       - name: Install dependencies
-        run: bun install --production
+        run: bun install
 
-      # 4. 编译生成 Linux AMD64 单文件二进制（已修正目标平台参数）
+      # 4. 调用项目内置的原生打包构建（让它自己编译出 distribution 目标文件）
+      - name: Production Build
+        run: |
+          if bun run | grep -q "build"; then
+            bun run build
+          fi
+
+      # 5. 自动寻找打包入口并强行编译成 Linux AMD64 纯二进制单文件
       - name: Compile to Single Binary
         run: |
-          bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile ./context-mode-linux-amd64
+          # 自动探测真正的入口文件（兼容 src/index.ts, src/cli.ts 或 bin/context-mode）
+          ENTRY_POINT="./src/index.ts"
+          if [ ! -f "$ENTRY_POINT" ] && [ -f "./src/cli.ts" ]; then ENTRY_POINT="./src/cli.ts"; fi
+          if [ ! -f "$ENTRY_POINT" ] && [ -f "./src/main.ts" ]; then ENTRY_POINT="./src/main.ts"; fi
+          if [ ! -f "$ENTRY_POINT" ] && [ -f "./index.ts" ]; then ENTRY_POINT="./index.ts"; fi
+          
+          echo "Detected entry point: $ENTRY_POINT"
+          
+          # 强行打包编译
+          bun build $ENTRY_POINT --compile --target=bun-linux-x64 --outfile ./context-mode-linux-amd64
 
-      # 5. 将编译好的文件作为打包产物上传
+      # 6. 将编译好的文件作为打包产物上传
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
