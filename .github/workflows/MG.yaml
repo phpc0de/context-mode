@@ -1,11 +1,20 @@
-name: Manual Build Linux AMD64 Binary
+name: Manual Build & Release Linux AMD64
 
 on:
   workflow_dispatch:
+    # 增加手动输入框，让你在点击运行时自定义版本号
+    inputs:
+      release_tag:
+        description: '请输入版本号标签 (例如: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write # 必须赋予写权限，否则 Actions 没办法帮你往 Releases 里塞文件
 
 jobs:
-  build-linux-x64:
-    name: Build Linux x64
+  build-and-release:
+    name: Build and Release Linux x64
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # 4. 调用项目内置的原生打包构建（让它自己编译出 distribution 目标文件）
+      # 4. 调用项目内置的原生打包构建
       - name: Production Build
         run: |
           if bun run | grep -q "build"; then
@@ -33,21 +42,21 @@ jobs:
       # 5. 自动寻找打包入口并强行编译成 Linux AMD64 纯二进制单文件
       - name: Compile to Single Binary
         run: |
-          # 自动探测真正的入口文件（兼容 src/index.ts, src/cli.ts 或 bin/context-mode）
           ENTRY_POINT="./src/index.ts"
           if [ ! -f "$ENTRY_POINT" ] && [ -f "./src/cli.ts" ]; then ENTRY_POINT="./src/cli.ts"; fi
           if [ ! -f "$ENTRY_POINT" ] && [ -f "./src/main.ts" ]; then ENTRY_POINT="./src/main.ts"; fi
           if [ ! -f "$ENTRY_POINT" ] && [ -f "./index.ts" ]; then ENTRY_POINT="./index.ts"; fi
           
           echo "Detected entry point: $ENTRY_POINT"
-          
-          # 强行打包编译
           bun build $ENTRY_POINT --compile --target=bun-linux-x64 --outfile ./context-mode-linux-amd64
 
-      # 6. 将编译好的文件作为打包产物上传
-      - name: Upload Binary Artifact
-        uses: actions/upload-artifact@v4
+      # 6. 直接推送到 GitHub Releases 页面（不要 Artifact 垃圾文件缓存）
+      - name: Create GitHub Release and Upload Binary
+        uses: softprops/action-gh-release@v2
         with:
-          name: context-mode-linux-amd64-binary
-          path: ./context-mode-linux-amd64
-          retention-days: 5
+          files: ./context-mode-linux-amd64
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: Release ${{ github.event.inputs.release_tag }}
+          body: "This release contains the standalone binary compiled strictly for Linux AMD64 (x86_64) architecture."
+          draft: false
+          prerelease: false
