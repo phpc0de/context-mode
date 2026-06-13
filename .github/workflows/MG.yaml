@@ -1,6 +1,5 @@
 name: Manual Build Linux AMD64 Binary
 
-# 开启手动触发开关
 on:
   workflow_dispatch:
 
@@ -24,15 +23,15 @@ jobs:
       - name: Install dependencies
         run: bun install --production
 
-      # 4. 编译生成 Linux AMD64 单文件二进制
+      # 4. 编译生成 Linux AMD64 单文件二进制（已修正目标平台参数）
       - name: Compile to Single Binary
         run: |
-          bun build ./src/index.ts --compile --target=node-linux-x64 --outfile ./context-mode-linux-amd64
+          bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile ./context-mode-linux-amd64
 
-      # 5. 将编译好的文件作为打包产物上传（可以直接在网页端下载，无需创建 Release）
+      # 5. 将编译好的文件作为打包产物上传
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
           name: context-mode-linux-amd64-binary
           path: ./context-mode-linux-amd64
-          retention-days: 5 # 产物在 GitHub 保留 5 天，过期自动清理
+          retention-days: 5
